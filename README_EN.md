@@ -35,9 +35,9 @@ This is not a wrapper around Google's official API ([generativelanguage.googleap
   into `completion_tokens`
 
 **Models**
-- `gemini-3.6-flash` and `gemini-3.5-flash-lite` work anonymously, web search included
+- `gemini-3.7-flash`, the compatible name `gemini-3.6-flash`, and `gemini-3.5-flash-lite` work anonymously, web search included
 - `gemini-3.1-pro` needs a cookie; every reply carries a reasoning chain
-- Each of the three models has a `-thinking` variant (extended thinking), available with a cookie
+- Each of the three base routes has a `-thinking` variant (extended thinking), available with a cookie
   (`reasoning_content`)
 - Every response records which model the backend **actually** used, so silent
   downgrades are visible
@@ -62,7 +62,7 @@ This is not a wrapper around Google's official API ([generativelanguage.googleap
 ### Prebuilt binary (simplest)
 
 Grab the one for your platform from
-[Releases](https://github.com/zexadev/gemini-web2api-go/releases). No Go, no Docker —
+[Releases](https://github.com/raclen/gemini-web2api-go/releases). No Go, no Docker —
 the single file is the whole thing:
 
 ```bash
@@ -79,13 +79,13 @@ docker run -d --name gemini-web2api \
   -p 127.0.0.1:8083:8083 \
   -v "$PWD/data:/data" \
   -e ADMIN_TOKEN=your-admin-token \
-  ghcr.io/zexadev/gemini-web2api-go:latest
+  ghcr.io/raclen/gemini-web2api-go:latest
 ```
 
 For compose, just grab the file — no clone required:
 
 ```bash
-curl -O https://raw.githubusercontent.com/zexadev/gemini-web2api-go/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/raclen/gemini-web2api-go/main/docker-compose.yml
 ADMIN_TOKEN=your-admin-token docker compose up -d
 ```
 
@@ -94,7 +94,7 @@ ADMIN_TOKEN=your-admin-token docker compose up -d
 If you have Go, skip Docker entirely:
 
 ```bash
-git clone https://github.com/zexadev/gemini-web2api-go
+git clone https://github.com/raclen/gemini-web2api-go
 cd gemini-web2api-go
 go build -o gemini-web2api-go .
 ./gemini-web2api-go --port 8083 --admin-token your-admin-token
@@ -106,13 +106,13 @@ Changed the code and want it in a container? Uncomment the two `build:` lines in
 The startup banner:
 
 ```
-gemini-web2api-go v4.0.0
+gemini-web2api-go v4.5.0
   Listening:   http://0.0.0.0:8083
   Base URL:    http://localhost:8083/v1
   API key:     sk-gemini-XX...XXXX  (mutable in admin UI)
   Admin UI:    http://localhost:8083/admin  (token auth)
   DB:          ./data/gemini.db
-  Models:      [gemini-3.5-flash-lite gemini-3.6-flash]
+  Models:      [gemini-3.5-flash-lite gemini-3.6-flash gemini-3.7-flash]
   Cookie:      none (anonymous)
   Proxy:       none
   Impersonate: chrome_146
@@ -130,7 +130,7 @@ curl http://localhost:8083/v1/chat/completions \
   -H "Authorization: Bearer sk-gemini-..." \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-3.6-flash",
+    "model": "gemini-3.7-flash",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -144,7 +144,7 @@ client = OpenAI(
     api_key="sk-gemini-..."  # find it in the admin panel
 )
 resp = client.chat.completions.create(
-    model="gemini-3.6-flash",
+    model="gemini-3.7-flash",
     messages=[{"role": "user", "content": "Explain quantum entanglement"}]
 )
 print(resp.choices[0].message.content)
@@ -153,7 +153,7 @@ print(resp.choices[0].message.content)
 On Windows PowerShell, `curl` is an alias for `Invoke-WebRequest` and will reinterpret the JSON quoting, so use `curl.exe` with `--%`:
 
 ```powershell
-curl.exe --% http://127.0.0.1:8083/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer sk-gemini-..." -d "{\"model\":\"gemini-3.6-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}"
+curl.exe --% http://127.0.0.1:8083/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer sk-gemini-..." -d "{\"model\":\"gemini-3.7-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}"
 ```
 
 ## Connecting clients
@@ -164,9 +164,9 @@ Every OpenAI-compatible client (Cherry Studio / ChatBox / Open WebUI / dify / Cu
 |---|---|
 | Base URL | `http://localhost:8083/v1` (some clients want just `http://localhost:8083` and append `/v1` themselves) |
 | API key | the `sk-gemini-…` shown on the admin panel's Settings page |
-| Model | `gemini-3.6-flash` |
+| Model | `gemini-3.7-flash` |
 
-**newapi / one-api channel**: pick the OpenAI type, set the base URL to `http://localhost:8083` (use `http://host.docker.internal:8083` or the container name if newapi runs in Docker too), paste the API key, and list the models as `gemini-3.6-flash,gemini-3.5-flash-lite`.
+**newapi / one-api channel**: pick the OpenAI type, set the base URL to `http://localhost:8083` (use `http://host.docker.internal:8083` or the container name if newapi runs in Docker too), paste the API key, and list the models as `gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite`.
 
 **Codex CLI** uses `/v1/responses` — point its base URL at `http://localhost:8083/v1`. The endpoint is implemented, but it is not incrementally streamed (see the protocol coverage table).
 
@@ -222,24 +222,28 @@ The frontend is a single HTML file and Chart.js is embedded in the binary, **not
 
 ## Models
 
-Gemini's backend only recognises three models (the list comes from `batchexecute?rpcids=otAQ7b`):
+Gemini's backend currently exposes three base routes (the list comes from
+`batchexecute?rpcids=otAQ7b`). The Flash route has been upgraded to 3.7, while
+`gemini-3.6-flash` remains as a compatible name:
 
 | Model | Description |
 |---|---|
-| `gemini-3.6-flash` | All-round, default |
+| `gemini-3.7-flash` | Latest all-round model, default |
+| `gemini-3.6-flash` | Compatible name for the current Flash route |
 | `gemini-3.5-flash-lite` | Fast and lightweight |
 | `gemini-3.1-pro` | Most capable, **needs a cookie**; every reply carries a reasoning chain |
+| `gemini-3.7-flash-thinking` | 3.7 Flash with extended thinking; **needs a cookie** |
 | `gemini-3.6-flash-thinking` | 3.6 Flash with extended thinking; **needs a cookie** |
 | `gemini-3.5-flash-lite-thinking` | 3.5 Flash-Lite with extended thinking; **needs a cookie** |
 | `gemini-3.1-pro-thinking` | 3.1 Pro with extended thinking; **needs a cookie** |
 | `gemini-image` | Image generation (Nano Banana); base64 output; **needs a cookie** |
 | `gemini-music` | Music (Lyria, ~30s); base64 output; **needs a cookie** |
 
-Without a cookie, `/v1/models` returns only the first two, and asking for `gemini-3.1-pro` fails with an explanation. An anonymous request for it is always silently downgraded to 3.5 Flash-Lite — better to fail at model selection than to hand back a reply that "succeeded" but isn't Pro.
+Without a cookie, `/v1/models` returns the first three anonymous names, and asking for `gemini-3.1-pro` fails with an explanation. An anonymous request for it is always silently downgraded to 3.5 Flash-Lite — better to fail at model selection than to hand back a reply that "succeeded" but isn't Pro.
 
 With a valid cookie it really is Pro: six consecutive calls all had the backend report `3.1 Pro` itself.
 
-Only those three are exposed. The old names `gemini-3.5-flash`, `gemini-3.5-flash-thinking`, `gemini-3.5-flash-thinking-lite`, `gemini-auto` and `gemini-flash-lite` were **removed** (they now return 400): the backend has no entries for them, and keeping them only suggested there were five distinct models to choose from.
+Only the three base routes are exposed, with `gemini-3.6-flash` retained as a compatible name for the current Flash route. The old names `gemini-3.5-flash`, `gemini-3.5-flash-thinking`, `gemini-3.5-flash-thinking-lite`, `gemini-auto` and `gemini-flash-lite` were **removed** (they now return 400): the backend has no entries for them, and keeping them only suggested there were five distinct models to choose from.
 
 > **`@think=N` is deprecated.** The suffix was written into `inner[17]` and long treated as "thinking depth", but captures show it is the **turn index within a conversation** (first turn `[[0]]`, the follow-up carrying a conversation id `[[1]]`, incrementing from there) — nothing to do with reasoning depth. We open a fresh conversation for every request, so the value is always 0 and the parameter never did anything. The suffix is still accepted and ignored, so existing client configs don't break.
 
@@ -272,7 +276,7 @@ you do want to bill for it.
 
 ### Known capability boundaries
 
-Anonymous calls (no cookie) only reach the two text models above plus Gemini's built-in web search. `gemini-3.1-pro` is silently downgraded to 3.5 Flash-Lite anonymously, which is why it isn't exposed at all in that case.
+Anonymous calls (no cookie) can use `gemini-3.7-flash`, the compatible name `gemini-3.6-flash`, and `gemini-3.5-flash-lite`, plus Gemini's built-in web search. `gemini-3.1-pro` is silently downgraded to 3.5 Flash-Lite anonymously, which is why it isn't exposed at all in that case.
 
 Attaching a cookie additionally unlocks `gemini-3.1-pro`, **extended thinking for all three models**, **image input**, **a longer context** (over-long conversations are sent as a text attachment, see below), and **image generation (`gemini-image`) / music (`gemini-music`)** (see "Image & music" below).
 

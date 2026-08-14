@@ -34,9 +34,9 @@
 - `usage` 用 tiktoken 算，`reasoning_tokens` 单列不计入 `completion_tokens`
 
 **模型**
-- `gemini-3.6-flash`、`gemini-3.5-flash-lite` 匿名可用，含联网搜索
+- `gemini-3.7-flash`、兼容名称 `gemini-3.6-flash`、`gemini-3.5-flash-lite` 匿名可用，含联网搜索
 - `gemini-3.1-pro` 挂 cookie 后可用，每次回答带思考链（`reasoning_content`）
-- 三个模型都有 `-thinking` 版（扩展思考），挂 cookie 后可用
+- 三条基础路由都有 `-thinking` 版（扩展思考），挂 cookie 后可用
 - 响应里记录服务端**实际**用了哪个模型，被静默降级一眼可见
 
 **不被拦 / 跑得久**
@@ -55,7 +55,7 @@
 
 ### 下载二进制（最省事）
 
-[Releases](https://github.com/zexadev/gemini-web2api-go/releases) 里挑对应平台的下载，
+[Releases](https://github.com/raclen/gemini-web2api-go/releases) 里挑对应平台的下载，
 不用 Go、不用 Docker，单个文件就是全部：
 
 ```bash
@@ -72,13 +72,13 @@ docker run -d --name gemini-web2api \
   -p 127.0.0.1:8083:8083 \
   -v "$PWD/data:/data" \
   -e ADMIN_TOKEN=your-admin-token \
-  ghcr.io/zexadev/gemini-web2api-go:latest
+  ghcr.io/raclen/gemini-web2api-go:latest
 ```
 
 用 compose 的话把 `docker-compose.yml` 单独下下来就行，也不用 clone：
 
 ```bash
-curl -O https://raw.githubusercontent.com/zexadev/gemini-web2api-go/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/raclen/gemini-web2api-go/main/docker-compose.yml
 ADMIN_TOKEN=your-admin-token docker compose up -d
 ```
 
@@ -87,7 +87,7 @@ ADMIN_TOKEN=your-admin-token docker compose up -d
 装了 Go 就不必绕 Docker：
 
 ```bash
-git clone https://github.com/zexadev/gemini-web2api-go
+git clone https://github.com/raclen/gemini-web2api-go
 cd gemini-web2api-go
 go build -o gemini-web2api-go .
 ./gemini-web2api-go --port 8083 --admin-token your-admin-token
@@ -98,13 +98,13 @@ go build -o gemini-web2api-go .
 启动后会看到 banner：
 
 ```
-gemini-web2api-go v4.0.0
+gemini-web2api-go v4.5.0
   Listening:   http://0.0.0.0:8083
   Base URL:    http://localhost:8083/v1
   API key:     sk-gemini-XX...XXXX  (mutable in admin UI)
   Admin UI:    http://localhost:8083/admin  (token auth)
   DB:          ./data/gemini.db
-  Models:      [gemini-3.5-flash-lite gemini-3.6-flash]
+  Models:      [gemini-3.5-flash-lite gemini-3.6-flash gemini-3.7-flash]
   Cookie:      none (anonymous)
   Proxy:       none
   Impersonate: chrome_146
@@ -122,7 +122,7 @@ curl http://localhost:8083/v1/chat/completions \
   -H "Authorization: Bearer sk-gemini-..." \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-3.6-flash",
+    "model": "gemini-3.7-flash",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -136,7 +136,7 @@ client = OpenAI(
     api_key="sk-gemini-..."  # admin 面板里看
 )
 resp = client.chat.completions.create(
-    model="gemini-3.6-flash",
+    model="gemini-3.7-flash",
     messages=[{"role": "user", "content": "解释量子纠缠"}]
 )
 print(resp.choices[0].message.content)
@@ -146,7 +146,7 @@ Windows PowerShell 下 `curl` 是 `Invoke-WebRequest` 的别名，会把 JSON �
 `curl.exe` 加 `--%`：
 
 ```powershell
-curl.exe --% http://127.0.0.1:8083/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer sk-gemini-..." -d "{\"model\":\"gemini-3.6-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}"
+curl.exe --% http://127.0.0.1:8083/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer sk-gemini-..." -d "{\"model\":\"gemini-3.7-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}"
 ```
 
 ## 客户端接入
@@ -157,11 +157,11 @@ curl.exe --% http://127.0.0.1:8083/v1/chat/completions -H "Content-Type: applica
 |---|---|
 | Base URL / API 地址 | `http://localhost:8083/v1`（部分客户端只要 `http://localhost:8083`，会自己拼 `/v1`） |
 | API Key | 管理面板「设置」页里的那个 `sk-gemini-…` |
-| 模型 | `gemini-3.6-flash` |
+| 模型 | `gemini-3.7-flash` |
 
 **newapi / one-api 建渠道**：类型选 OpenAI，Base URL 填 `http://localhost:8083`（跟 newapi 同在
 docker 里就写 `http://host.docker.internal:8083` 或容器名），密钥填 API key，模型填
-`gemini-3.6-flash,gemini-3.5-flash-lite`。
+`gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite`。
 
 **Codex CLI** 走 `/v1/responses`，把 base url 指到 `http://localhost:8083/v1` 即可（该端点已实现，
 但不是增量流式，见下面的协议覆盖表）。
@@ -219,20 +219,23 @@ Claude Code / Cursor 这类 MCP 客户端能「用 Gemini 去搜网」，返回*
 
 ## 模型
 
-Gemini 网页端服务端只认三个模型（清单来自 `batchexecute?rpcids=otAQ7b`）：
+Gemini 网页端当前有三条基础模型路由（清单来自 `batchexecute?rpcids=otAQ7b`）。
+Flash 路由已升级为 3.7，同时保留 `gemini-3.6-flash` 作为兼容名称：
 
 | 模型 | 描述 |
 |---|---|
-| `gemini-3.6-flash` | 全方位，默认 |
+| `gemini-3.7-flash` | 最新全方位模型，默认 |
+| `gemini-3.6-flash` | 当前 Flash 路由的兼容名称 |
 | `gemini-3.5-flash-lite` | 极速、轻量 |
 | `gemini-3.1-pro` | 最强，**要配 cookie**；每次回答都带思考链 |
+| `gemini-3.7-flash-thinking` | 3.7 Flash 开扩展思考，**要配 cookie** |
 | `gemini-3.6-flash-thinking` | 3.6 Flash 开扩展思考，**要配 cookie** |
 | `gemini-3.5-flash-lite-thinking` | 3.5 Flash-Lite 开扩展思考，**要配 cookie** |
 | `gemini-3.1-pro-thinking` | 3.1 Pro 开扩展思考，**要配 cookie** |
 | `gemini-image` | 生图（Nano Banana），产物 base64，**要配 cookie** |
 | `gemini-music` | 音乐（Lyria，约 30 秒），产物 base64，**要配 cookie** |
 
-没配 cookie 时 `/v1/models` 只返回前两个，选 `gemini-3.1-pro` 会直接报错并说明
+没配 cookie 时 `/v1/models` 返回前三个匿名可用名称，选 `gemini-3.1-pro` 会直接报错并说明
 原因。因为匿名请求它必然被静默降级成 3.5 Flash-Lite——与其让客户端拿到一个
 "成功但其实不是 Pro"的回复，不如在选型时就失败。
 
@@ -243,7 +246,8 @@ Gemini 网页端服务端只认三个模型（清单来自 `batchexecute?rpcids=
 思考链明显变长（实测 2467 / 1059 / 583 字符，对应普通版 0 / 0 / 268）。
 **只在登录态生效**：匿名请求带上这个开关会被服务端静默忽略，所以没 cookie 时不暴露。
 
-只暴露这三个基础模型。旧的 `gemini-3.5-flash`、`gemini-3.5-flash-thinking`、
+只暴露三条基础路由，并为当前 Flash 路由保留 `gemini-3.6-flash` 兼容名称。旧的
+`gemini-3.5-flash`、`gemini-3.5-flash-thinking`、
 `gemini-3.5-flash-thinking-lite`、`gemini-auto`、`gemini-flash-lite` **已移除**
 （传了会返回 400）——它们在服务端没有对应条目，留着只会让人以为有五种不同
 的模型可选。
@@ -281,7 +285,8 @@ I've successfully defined..."
 
 ### 已知的能力边界
 
-匿名调用（不挂 cookie）只能拿到上面两个文本模型 + Gemini 自带的联网搜索。
+匿名调用（不挂 cookie）可用 `gemini-3.7-flash`、兼容名称 `gemini-3.6-flash`、
+`gemini-3.5-flash-lite` + Gemini 自带的联网搜索。
 `gemini-3.1-pro` 匿名时被静默降级成 3.5 Flash-Lite，所以干脆不暴露。
 
 挂上 cookie 额外解锁：`gemini-3.1-pro`、**三个模型的扩展思考版**、**读图**、**更长的上下文**

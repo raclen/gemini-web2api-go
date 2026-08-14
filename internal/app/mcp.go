@@ -184,7 +184,7 @@ func webSearchToolDef() map[string]interface{} {
 func mcpWebSearch(query string) (string, error) {
 	mc, ok := Models[rtCfg().DefaultModel]
 	if !ok {
-		mc = Models["gemini-3.6-flash"]
+		mc = Models["gemini-3.7-flash"]
 	}
 	res, err := streamGenerate(query, query, mc, nil, nil)
 	if err != nil {

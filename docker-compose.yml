@@ -2,7 +2,7 @@ services:
   gemini-web2api:
     # 默认拉现成镜像，不需要源码——把这个文件单独下下来就能跑。
     # 想从源码构建（改了代码、或者要自己审一遍）就把下面 build 那两行的注释去掉。
-    image: ghcr.io/zexadev/gemini-web2api-go:latest
+    image: ghcr.io/raclen/gemini-web2api-go:latest
     # build:
     #   context: .
     container_name: gemini-web2api

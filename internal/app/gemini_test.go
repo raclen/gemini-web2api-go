@@ -10,6 +10,7 @@ func TestModelHeader(t *testing.T) {
 	withPoolCookie(t) // 让 3.1 Pro 可选，见 TestProHiddenWithoutCookie
 
 	cases := []struct{ name, wantHex string }{
+		{"gemini-3.7-flash", hexFlash37},
 		{"gemini-3.6-flash", hexFlash36},
 		{"gemini-3.5-flash-lite", hexFlashLite},
 		{"gemini-3.1-pro", hexPro31},
@@ -47,8 +48,8 @@ func TestModelHeader(t *testing.T) {
 			t.Errorf("已移除的别名 %s 应该报错", gone)
 		}
 	}
-	// 守的是「不许冒出假模型」：thinking 版复用同样的 hex，所以看**去重后的 hex 数**，
-	// 不是条目数。服务端清单（otAQ7b）里就 3 个。
+	// 守的是「不许冒出假路由」：3.7 / 3.6 兼容名称和 thinking 版会复用同样的
+	// hex，所以看**去重后的 hex 数**，不是条目数。服务端清单（otAQ7b）里就 3 个。
 	hexes := map[string]bool{}
 	for _, m := range Models {
 		hexes[m.HexID] = true
@@ -259,8 +260,8 @@ func TestProHiddenWithoutCookie(t *testing.T) {
 			t.Errorf("无 cookie 时不该暴露 thinking 版: %s", name)
 		}
 	}
-	if len(availableModels()) != 2 {
-		t.Errorf("无 cookie 时应只剩 2 个模型, got %d", len(availableModels()))
+	if len(availableModels()) != 3 {
+		t.Errorf("无 cookie 时应只剩 3 个模型, got %d", len(availableModels()))
 	}
 	_, _, err := resolveModel("gemini-3.1-pro")
 	if err == nil {
@@ -280,7 +281,7 @@ func TestProHiddenWithoutCookie(t *testing.T) {
 	if _, _, err := resolveModel("gemini-3.1-pro"); err != nil {
 		t.Errorf("配了 cookie 时不该报错: %v", err)
 	}
-	for _, n := range []string{"gemini-3.6-flash-thinking", "gemini-3.5-flash-lite-thinking",
+	for _, n := range []string{"gemini-3.7-flash-thinking", "gemini-3.6-flash-thinking", "gemini-3.5-flash-lite-thinking",
 		"gemini-3.1-pro-thinking"} {
 		if _, ok := availableModels()[n]; !ok {
 			t.Errorf("配了 cookie 时应暴露 %s", n)

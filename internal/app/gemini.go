@@ -18,7 +18,8 @@ import (
 
 // Gemini 服务端认的模型 id，来自 batchexecute?rpcids=otAQ7b 返回的权威清单。
 const (
-	hexFlash36   = "fbb127bbb056c959" // 3.6 Flash
+	hexFlash37   = "fbb127bbb056c959" // 当前 3.7 Flash 路由
+	hexFlash36   = hexFlash37         // 3.6 保留为兼容名称，仍指向同一路由
 	hexFlashLite = "cf41b0e0dd7d53e5" // 3.5 Flash-Lite
 	hexPro31     = "9d8ca3786ebdfbea" // 3.1 Pro
 )
@@ -58,25 +59,28 @@ type ModelConfig struct {
 	Tool int
 }
 
-// 只暴露服务端清单（batchexecute?rpcids=otAQ7b）里真实存在的模型。
+// 只暴露服务端清单（batchexecute?rpcids=otAQ7b）里真实存在的模型，外加仍指向
+// 同一条当前 Flash 路由的兼容名称 gemini-3.6-flash。
 // 旧的 gemini-3.5-flash / -thinking / -thinking-lite / gemini-auto /
 // gemini-flash-lite 别名已移除：它们在服务端没有对应条目，留着只会让人
 // 以为有五种不同的模型可选。
 var Models = map[string]ModelConfig{
-	"gemini-3.6-flash":      {HexID: hexFlash36, Mode: 1, Desc: "Latest all-around model"},
+	"gemini-3.7-flash":      {HexID: hexFlash37, Mode: 1, Desc: "Latest all-around model (Gemini 3.7 Flash)"},
+	"gemini-3.6-flash":      {HexID: hexFlash36, Mode: 1, Desc: "All-around model (compatible name for the current Flash route)"},
 	"gemini-3.5-flash-lite": {HexID: hexFlashLite, Mode: 6, Desc: "Fastest, lightweight"},
 	"gemini-3.1-pro":        {HexID: hexPro31, Mode: 3, Desc: "Most capable; needs a signed-in cookie (downgraded to Flash-Lite without one)"},
 
 	// 扩展思考版。inner[80]=2 跟模型 hex 正交，三个模型都能开；但只在登录态生效，
 	// 所以跟 3.1 Pro 一样在没 cookie 时不暴露。
+	"gemini-3.7-flash-thinking":      {HexID: hexFlash37, Mode: 1, Thinking: true, Desc: "3.7 Flash with extended thinking; needs a signed-in cookie"},
 	"gemini-3.6-flash-thinking":      {HexID: hexFlash36, Mode: 1, Thinking: true, Desc: "3.6 Flash with extended thinking; needs a signed-in cookie"},
 	"gemini-3.5-flash-lite-thinking": {HexID: hexFlashLite, Mode: 6, Thinking: true, Desc: "3.5 Flash-Lite with extended thinking; needs a signed-in cookie"},
 	"gemini-3.1-pro-thinking":        {HexID: hexPro31, Mode: 3, Thinking: true, Desc: "3.1 Pro with extended thinking; needs a signed-in cookie"},
 
 	// 媒体生成。inner[49] 一填，服务端换后端模型出图/出乐；产物走 hNvQHb + 下载 host
 	// 取回，以 base64 data URL 塞进 content 返回。都要登录态，没 cookie 时不暴露。
-	"gemini-image": {HexID: hexFlash36, Mode: 1, Tool: toolImage, Desc: "Image generation (Nano Banana); returns a base64 data URL; needs a signed-in cookie"},
-	"gemini-music": {HexID: hexFlash36, Mode: 1, Tool: toolMusic, Desc: "Music generation (Lyria, ~30s); returns a base64 data URL; needs a signed-in cookie"},
+	"gemini-image": {HexID: hexFlash37, Mode: 1, Tool: toolImage, Desc: "Image generation (Nano Banana); returns a base64 data URL; needs a signed-in cookie"},
+	"gemini-music": {HexID: hexFlash37, Mode: 1, Tool: toolMusic, Desc: "Music generation (Lyria, ~30s); returns a base64 data URL; needs a signed-in cookie"},
 }
 
 // hasCookie 表示 cookie 池里有没有可用账号。决定 3.1 Pro 是否出现在模型列表里。
@@ -995,7 +999,7 @@ func probeGemini(prompt, proxyURL string) ProbeResult {
 	inner[59] = uuid.NewString()
 	inner[61] = []interface{}{}
 	inner[68] = 1
-	probeModel := Models["gemini-3.6-flash"]
+	probeModel := Models["gemini-3.7-flash"]
 	inner[79] = probeModel.Mode
 
 	innerJSON, _ := json.Marshal(inner)

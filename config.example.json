@@ -5,7 +5,7 @@
   "admin_enabled": true,
   "admin_token": "",
   "impersonate": "chrome_146",
-  "default_model": "gemini-3.6-flash",
+  "default_model": "gemini-3.7-flash",
   "retry_attempts": 3,
   "retry_delay_sec": 2,
   "request_timeout_sec": 180,

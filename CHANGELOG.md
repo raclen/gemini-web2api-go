@@ -2,6 +2,16 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 4.5.0
+
+### 新增
+
+- **Gemini 3.7 Flash**。参考 `goehou/gemini-web2api` 的 `808bcf3` 提交新增
+  `gemini-3.7-flash`，使用 Gemini Web 当前 Flash 路由 `fbb127bbb056c959`；
+  `gemini-3.6-flash` 保留为兼容名称，避免已有客户端配置失效。
+- 新增 `gemini-3.7-flash-thinking`，复用现有扩展思考开关；登录态下可用。
+- 默认模型更新为 `gemini-3.7-flash`。
+
 ## 4.4.0
 
 ### 新增
