@@ -93,7 +93,7 @@ func handleAdminCookies(w http.ResponseWriter, r *http.Request) {
 //
 //	DELETE          删除
 //	POST .../toggle 翻转 enabled/disabled
-//	PATCH           改 label / note / status
+//	PATCH           改 label / note / status / proxy_id
 func handleAdminCookieItem(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/admin/api/cookies/")
 	parts := strings.Split(rest, "/")
@@ -168,9 +168,10 @@ func handleAdminCookieItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]interface{}{"status": next})
 	case http.MethodPatch:
 		var p struct {
-			Label  *string `json:"label"`
-			Note   *string `json:"note"`
-			Status *string `json:"status"`
+			Label   *string `json:"label"`
+			Note    *string `json:"note"`
+			Status  *string `json:"status"`
+			ProxyID *int64  `json:"proxy_id"`
 		}
 		body, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(body, &p); err != nil {
@@ -202,6 +203,21 @@ func handleAdminCookieItem(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
 			}
+		}
+		// 手动指定出口，0 = 解绑交回自动挑。
+		//
+		// 绑的是**偏好**不是独占：这个出口被停用/删除/熔断之后，请求路径照样会自动
+		// 改绑到别的出口（见 streamGenerateWithFiles 里的 proxyUsableByID 判断）。
+		// 手动选只是替代「第一次请求时轮到谁算谁」，粘性本身的语义没变。
+		//
+		// 停用中的出口也允许绑：用户可能想先把绑定关系配好再启用。
+		if p.ProxyID != nil {
+			if *p.ProxyID < 0 || (*p.ProxyID > 0 && !proxyExists(*p.ProxyID)) {
+				writeJSON(w, 400, map[string]string{"error": "代理不存在"})
+				return
+			}
+			bindAccountProxy(id, *p.ProxyID)
+			logf("[cookies] 账号 #%d 的出口手动绑到 #%d", id, *p.ProxyID)
 		}
 		writeJSON(w, 200, map[string]bool{"ok": true})
 	default:

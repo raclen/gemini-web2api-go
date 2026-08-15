@@ -444,6 +444,22 @@ func proxyNameByID(id int64) string {
 	return ""
 }
 
+// proxyExists 池子里有没有这条记录，不管它启用与否。
+// 手动绑定时用：停用中的出口也允许绑，启用回来就直接生效。
+func proxyExists(id int64) bool {
+	if id <= 0 {
+		return false
+	}
+	proxyMu.RLock()
+	defer proxyMu.RUnlock()
+	for _, p := range proxyCache {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // proxyUsableByID 这个出口现在还能不能用（存在 + enabled + 没熔断或已过冷却）。
 // 判断账号绑定的出口是不是还有效，无效才该重新绑。
 func proxyUsableByID(id int64) bool {

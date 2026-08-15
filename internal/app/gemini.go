@@ -83,6 +83,18 @@ var Models = map[string]ModelConfig{
 	"gemini-music": {HexID: hexFlash37, Mode: 1, Tool: toolMusic, Desc: "Music generation (Lyria, ~30s); returns a base64 data URL; needs a signed-in cookie"},
 }
 
+// needsLogin 这个模型是不是非登录态不可。
+//
+// 判据跟 availableModels 的排除条件同源：3.1 Pro 匿名会被静默降级成 3.5 Flash-Lite，
+// 扩展思考的 inner[80]=2 匿名被服务端忽略，生图/音乐匿名只回一句「Are you signed in?」。
+// 剩下的三个 Flash 匿名跑和登录跑拿到的是同一个模型，所以带不带 cookie 都行。
+//
+// 注意 gemini-3.7-flash-thinking 名字里有 flash 但这里算 true —— 它靠的是扩展思考，
+// 而那个开关只在登录态生效。
+func (mc ModelConfig) needsLogin() bool {
+	return mc.Thinking || mc.Tool > 0 || mc.HexID == hexPro31
+}
+
 // hasCookie 表示 cookie 池里有没有可用账号。决定 3.1 Pro 是否出现在模型列表里。
 func hasCookie() bool {
 	_, enabled := accountCount()
@@ -280,9 +292,18 @@ func streamGenerateWithFiles(prompt, latest string, mc ModelConfig, pending []pe
 	//
 	// 挑号排在 acquireSlot 之前不违反「取 XSRF 必须走正式出口」：挑号只读库、
 	// 不发请求，真正发请求的是下面的 getXSRF，它在拿到 slot 之后。
+	//
+	// prefer_anon 开着时，匿名跑得动的模型压根不碰 cookie 池，把账号的配额和风控
+	// 额度全留给非登录不可的请求。但**上传那两条路仍然要 cookie**：图片附件匿名
+	// 传得上去、一引用就被服务端回 1100；超长对话转附件同理（见 context_file.go）。
+	// 少判这一条的话，开了开关之后 flash 的长对话会从「转附件成功」退化成 400。
+	budget := rtCfg().MaxPromptBytes
+	needsUpload := len(pending) > 0 || (budget > 0 && len(prompt) > budget)
 	var acct *CookieAccount
-	if a, ok := pickCookieAccount(); ok {
-		acct = a
+	if mc.needsLogin() || needsUpload || !rtCfg().PreferAnon {
+		if a, ok := pickCookieAccount(); ok {
+			acct = a
+		}
 	}
 	preferProxy := int64(0)
 	if acct != nil {
@@ -408,8 +429,8 @@ func streamGenerateWithFiles(prompt, latest string, mc ModelConfig, pending []pe
 	}
 
 	// prompt 超长时转成文本附件。要等挑完号和出口才能做：上传要 cookie，
-	// 而且必须走跟正式请求同一个出口。
-	budget := rtCfg().MaxPromptBytes
+	// 而且必须走跟正式请求同一个出口。budget 在挑号那一步就取好了，同一个请求
+	// 内用同一份快照。
 	if p, f, used, ferr := prepareContextFile(prompt, latest, budget, cookieStr, proxyURL); ferr != nil {
 		return attrib(ferr)
 	} else if used {

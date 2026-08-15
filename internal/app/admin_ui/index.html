@@ -660,12 +660,12 @@ const pages = {
             <colgroup>
               <col style="width:48px"><col style="width:160px"><col style="width:80px">
               <col style="width:150px"><col style="width:92px"><col style="width:64px">
-              <col style="width:150px"><col><col style="width:150px">
+              <col style="width:120px"><col style="width:150px"><col><col style="width:150px">
             </colgroup>
             <thead><tr>
               <th class="nw">ID</th><th class="nw">标签</th><th class="nw">状态</th>
               <th class="nw">关键 Cookie</th><th class="nw">SAPISID</th><th class="nw">失败</th>
-              <th class="nw">最近成功</th><th>最近错误</th><th class="nw">操作</th>
+              <th class="nw">出口</th><th class="nw">最近成功</th><th>最近错误</th><th class="nw">操作</th>
             </tr></thead>
             <tbody>${items.map(a => `
               <tr>
@@ -678,6 +678,7 @@ const pages = {
                 </td>
                 <td class="pre nw">${a.sapisid_tail ? '…' + escapeHtml(a.sapisid_tail) : '—'}</td>
                 <td class="num nw">${a.fail_count > 0 ? '<span class="badge fail">' + a.fail_count + '</span>' : 0}</td>
+                <td class="nw truncate" title="${escapeHtml(a.proxy_name || '')}">${a.proxy_name ? escapeHtml(a.proxy_name) : '<span class="badge muted">未绑</span>'}</td>
                 <td class="nw" style="font-size:12px;color:var(--muted)">${a.last_ok_at ? fmt.ts(a.last_ok_at) : '—'}</td>
                 <td class="pre truncate" title="${escapeHtml(a.last_error || '')}">${escapeHtml(a.last_error || '—')}</td>
                 <td class="nw">
@@ -685,11 +686,11 @@ const pages = {
                     <button class="btn muted" onclick="checkCookieAcct(${a.id}, this)">检测</button>
                     <button class="btn muted" onclick="rotateCookieAcct(${a.id}, this)">保活</button>
                     <button class="btn muted" onclick="toggleCookieAcct(${a.id})">${a.status === 'enabled' ? '禁用' : '启用'}</button>
-                    <button class="btn muted" onclick="editCookieAcct(${a.id}, ${JSON.stringify(a.label || '').replace(/"/g, '&quot;')}, ${JSON.stringify(a.note || '').replace(/"/g, '&quot;')})">编辑</button>
+                    <button class="btn muted" onclick="editCookieAcct(${a.id}, ${JSON.stringify(a.label || '').replace(/"/g, '&quot;')}, ${JSON.stringify(a.note || '').replace(/"/g, '&quot;')}, ${a.proxy_id || 0})">编辑</button>
                     <button class="btn danger" onclick="delCookieAcct(${a.id})">删除</button>
                   </span>
                 </td>
-              </tr>`).join('') || '<tr><td colspan="9" class="empty">Cookie 池是空的。点「+ 导入 Cookie」加一个登录态账号。</td></tr>'}
+              </tr>`).join('') || '<tr><td colspan="10" class="empty">Cookie 池是空的。点「+ 导入 Cookie」加一个登录态账号。</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -943,6 +944,8 @@ const RT_GROUPS = [
         hint: '关：直接返回 429，本机 IP 不会暴露给上游（默认）。开：可用性优先，但上游会看到本机真实出口' },
       { k: 'fallback_anon', label: 'cookie 失效时降级匿名', type: 'bool',
         hint: '关：直接报错，能立刻发现该换号了（默认）。开：继续跑，但 3.1 Pro 会被静默降级成 3.5 Flash-Lite、思考链消失，客户端看不出来' },
+      { k: 'prefer_anon', label: 'Flash 主动走匿名', type: 'bool',
+        hint: '开：gemini-3.7-flash / 3.6-flash / 3.5-flash-lite 三个模型不带 cookie 跑，把账号配额和风控额度全留给 3.1 Pro、扩展思考、生图音乐。带 -thinking 的和 Pro 不受影响（它们匿名等于白跑）。图片输入和超长对话转附件仍会用 cookie，上传绕不开登录态' },
     ],
   },
   {
@@ -1269,18 +1272,34 @@ async function addCookieAcct() {
   await refreshPage();
 }
 
-async function editCookieAcct(id, label, note) {
+async function editCookieAcct(id, label, note, proxyID) {
+  // 出口列表现拉：代理可能刚被增删，页面上缓存的会对不上
+  const px = await api('api/proxies').catch(() => ({}));
+  const opts = [{ value: 0, label: '未绑定（下次请求自动挑）' }];
+  for (const p of px.items || []) {
+    opts.push({ value: p.id, label: p.name + (p.enabled ? '' : '（已停用）') });
+  }
+  // 绑的代理已经被删掉时把它补进选项，否则下拉会默默落到第一项 ——
+  // 用户只想改个标签，一提交却把绑定顺手清了
+  if (proxyID > 0 && !opts.some(o => o.value === proxyID)) {
+    opts.push({ value: proxyID, label: '#' + proxyID + '（已删除）' });
+  }
   const data = await modalForm({
     title: '编辑 Cookie #' + id,
-    desc: '只改标签和备注，不动 cookie 本身。要换 cookie 请删掉重新导入。',
+    desc: '改标签、备注和出口绑定，不动 cookie 本身。要换 cookie 请删掉重新导入。' +
+          '出口绑定是偏好而非独占：绑的代理被停用或熔断后，请求仍会自动改绑到别的出口。',
     fields: [
       { name: 'label', label: '标签', value: label || '', placeholder: '账号邮箱' },
       { name: 'note', label: '备注', value: note || '', placeholder: '可留空' },
+      { name: 'proxy_id', label: '出口绑定', value: proxyID || 0, options: opts,
+        hint: '同一个号固定从同一个 IP 出去，避免被上游判成账号共享' },
     ],
   });
   if (!data) return;
   const j = await api('api/cookies/' + id, {
-    method: 'PATCH', body: JSON.stringify({ label: data.label, note: data.note }),
+    method: 'PATCH', body: JSON.stringify({
+      label: data.label, note: data.note, proxy_id: Number(data.proxy_id),
+    }),
   });
   if (j.error) return flash('保存失败：' + j.error);
   flash('已保存');
@@ -1555,14 +1574,20 @@ function modalPrompt({ title, desc, label, placeholder = '', value = '', hint, p
   });
 }
 
-// fields: [{ name, label, placeholder, hint, value, required, password }]
+// fields: [{ name, label, placeholder, hint, value, required, password, options }]
+// options 有值时渲染 <select>（option 形如 {value,label}），否则 <input>。
+// 选中判断按字符串比：传进来的 value 是数字（代理 id），而 DOM 里只有字符串。
 function modalForm({ title, desc, fields, submitText = '提交' }) {
   const html = fields.map(f => `
     <div class="field">
       <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
-      <input data-name="${escapeHtml(f.name)}" type="${f.password ? 'password' : 'text'}"
+      ${f.options
+        ? `<select data-name="${escapeHtml(f.name)}" style="width:100%">${f.options.map(o =>
+            `<option value="${escapeHtml(String(o.value))}" ${String(o.value) === String(f.value) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+          ).join('')}</select>`
+        : `<input data-name="${escapeHtml(f.name)}" type="${f.password ? 'password' : 'text'}"
              placeholder="${escapeHtml(f.placeholder || '')}"
-             value="${escapeHtml(f.value || '')}" />
+             value="${escapeHtml(f.value || '')}" />`}
       ${f.hint ? `<div class="hint">${f.hint}</div>` : ''}
     </div>`).join('');
   return buildModal({

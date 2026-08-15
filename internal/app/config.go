@@ -35,6 +35,8 @@ type Config struct {
 	FallbackDirect bool `json:"fallback_direct"`
 	// cookie 失效时是否降级成匿名继续跑。默认 false。
 	FallbackAnon bool `json:"fallback_anon"`
+	// 匿名跑得动的模型是否主动不带 cookie。默认 false。
+	PreferAnon bool `json:"prefer_anon"`
 	// 是否自动从 /app 页面抓最新 bl 版本号。默认 true。
 	GeminiBLAuto bool `json:"gemini_bl_auto"`
 	// 单次请求 prompt 的 UTF-8 字节上限，0 = 不限。
@@ -73,6 +75,7 @@ func defaultConfig() Config {
 		ProxyCooldownMin: 120,
 		FallbackDirect:   false,
 		FallbackAnon:     false,
+		PreferAnon:       false,
 		GeminiBLAuto:     true,
 		// 实测上游的墙在约 13 万 UTF-8 字节：129,950 字节中英文各 3/3 过，
 		// 135,990 字节各 1/3，141,920 字节各 1/3。取 128000 留一点余量。

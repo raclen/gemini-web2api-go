@@ -34,6 +34,12 @@ type RuntimeConfig struct {
 	// FallbackAnon 决定 cookie 失效时是降级成匿名继续跑还是直接报错。
 	// 默认 false：匿名档拿不到 3.1 Pro / 扩展思考 / 生图，降级了客户端也看不出来。
 	FallbackAnon bool `json:"fallback_anon"`
+	// PreferAnon 决定匿名跑得动的模型要不要主动不带 cookie。
+	//
+	// 跟 FallbackAnon 正交：那个是**失败兜底**，这个是**主动选择**。开着时三个
+	// Flash 走匿名，把账号的配额和风控额度全留给非登录不可的请求（3.1 Pro /
+	// 扩展思考 / 生图 / 音乐）。图片输入和超长对话转附件要上传，仍然会带 cookie。
+	PreferAnon bool `json:"prefer_anon"`
 	// GeminiBLAuto 决定是否定期从 /app 页面抓最新的 bl 版本号覆盖上面钉死的值。
 	GeminiBLAuto bool `json:"gemini_bl_auto"`
 	// MaxPromptBytes 是单次请求 prompt 的 UTF-8 字节上限，超了直接报错。
@@ -68,6 +74,7 @@ func initRuntimeConfig() {
 		ProxyCooldownMin: cfg.ProxyCooldownMin,
 		FallbackDirect:   cfg.FallbackDirect,
 		FallbackAnon:     cfg.FallbackAnon,
+		PreferAnon:       cfg.PreferAnon,
 		GeminiBLAuto:     cfg.GeminiBLAuto,
 		MaxPromptBytes:   cfg.MaxPromptBytes,
 	}
